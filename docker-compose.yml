@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  nginx:
+    build: ./docker/nginx/
+    container_name: nginx-container-wallet
+    ports:
+      - "80:80"
+    depends_on:
+      - php
+    volumes_from:
+      - app-data
+    restart: always
+
+  php:
+    build: ./docker/php/
+    container_name: php-container-wallet
+    working_dir: /app
+    expose:
+      - 9000
+    volumes_from:
+      - app-data
+    volumes:
+      - ./docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./docker/php/conf.d/custom_php.ini:/usr/local/etc/php/php.ini:ro
+    depends_on:
+      # - composer
+      - node
+    # command: php artisan migrate --force
+    # command: php artisan storage:link
+    restart: always
+
+  node:
+    image: node:22.5.1
+    container_name: node-container-wallet
+    working_dir: /app
+    volumes_from:
+      - app-data
+    command: >
+      sh -c "npm install && npm run build"
+
+  app-data:
+    image: busybox
+    container_name: app-data-container-wallet
+    volumes:
+      - .:/app
+    command: "true"
+
+  composer:
+    image: composer:2.7.7
+    container_name: composer-container-wallet
+      - app-data
+    working_dir: /app
+    command: composer install --ignore-platform-reqs
+
+volumes:
+  app-data:
