@@ -8,8 +8,8 @@ use App\Http\Controllers\AuthController;
 Route::post('/register', [AuthController::class, 'register']);
 
 Route::prefix('wallets')->group(function () {
-    Route::post('/{wallet}/deposit', [WalletController::class, 'deposit']);
-    Route::post('/{wallet}/withdraw', [WalletController::class, 'withdraw']);
+    Route::post('/deposit', [WalletController::class, 'deposit']);
+    Route::post('/withdraw', [WalletController::class, 'withdraw']);
     Route::get('/{wallet}/balance', [WalletController::class, 'balance']);
     Route::get('/{wallet}/transactions', [WalletController::class, 'transactions']);
 });

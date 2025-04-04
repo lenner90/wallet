@@ -7,12 +7,32 @@ use App\Models\Transaction;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class WalletController extends Controller
 {
-    public function deposit(Request $request, Wallet $wallet)
+    public function deposit(Request $request)
     {
-        $request->validate(['amount' => 'required|numeric|min:0.01']);
+        $validator = Validator::make($request->all(), [
+            'wallet_id' => 'required|exists:wallets,id',
+            'amount' => 'required|numeric|min:0.01'
+        ], [
+            'wallet_id.required' => 'Please specify a wallet with ID',
+            'wallet_id.exists' => 'The specified wallet does not exist',
+            'amount.required' => 'Please specify an amount',
+            'amount.numeric' => 'Amount must be a number',
+            'amount.min' => 'Minimum deposit amount is 0.01'
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        $wallet = Wallet::findOrFail($request->wallet_id);
         
         // Use a database transaction with pessimistic locking
         DB::beginTransaction();
@@ -39,15 +59,34 @@ class WalletController extends Controller
         }
     }
 
-    public function withdraw(Request $request, $walletId)
+    public function withdraw(Request $request)
     {
-        $request->validate(['amount' => 'required|numeric|min:0.01']);
+        $validator = Validator::make($request->all(), [
+            'wallet_id' => 'required|exists:wallets,id',
+            'amount' => 'required|numeric|min:0.01'
+        ], [
+            'wallet_id.required' => 'Please specify a wallet',
+            'wallet_id.exists' => 'The specified wallet does not exist',
+            'amount.required' => 'Please specify an amount',
+            'amount.numeric' => 'Amount must be a number',
+            'amount.min' => 'Minimum withdrawal amount is 0.01'
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        $wallet = Wallet::findOrFail($request->wallet_id);
         
         // Use a database transaction with pessimistic locking
         DB::beginTransaction();
         try {
             // Lock the wallet record for update to prevent concurrent modifications
-            $wallet = Wallet::lockForUpdate()->findOrFail($walletId);
+            $wallet = Wallet::lockForUpdate()->findOrFail($request->wallet_id);
             $wallet->withdraw($request->amount);
             
             Transaction::create([
@@ -66,13 +105,27 @@ class WalletController extends Controller
         }
     }
 
-    public function balance(Wallet $wallet)
+    public function balance($walletId)
     {
-        return response()->json(['balance' => $wallet->balance]);
+        try {
+            $wallet = Wallet::findOrFail($walletId);
+            return response()->json(['balance' => $wallet->balance]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Wallet not found'
+            ], 404);
+        }
     }
 
-    public function transactions(Wallet $wallet)
+    public function transactions($walletId)
     {
-        return response()->json($wallet->transactions()->latest()->get());
+        try {
+            $wallet = Wallet::findOrFail($walletId);
+            return response()->json($wallet->transactions()->latest()->get());
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Wallet not found'
+            ], 404);
+        }
     }
 }
